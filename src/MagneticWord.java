@@ -67,7 +67,7 @@ import processing.core.*;
 			}
 		 myImage = newImg;
 	    mySize=100;
-	    myY = 0;
+	    myY = -24;
 	}
 public MagneticWord(String inWord, PImage newImg, double inRate) {
 	myWord = inWord;
@@ -102,7 +102,7 @@ public MagneticWord(String inWord, PImage newImg, double inRate) {
 		}
 	 myImage = newImg;
     mySize=100;
-    myY = 0;
+    myY = -24;
 }
 public MagneticWord(String inWord, double inRate) {
 	myWord = inWord;
