@@ -1,7 +1,12 @@
+import java.util.Vector;
+
 import processing.core.*;
 
  public class MagneticWord
 {
+  float x,y,vx,vy;
+  float g = (float) 0.025;
+  boolean toca=false;
   float myX;
   float myY;
   int mySize;
@@ -13,10 +18,12 @@ import processing.core.*;
   int thumbX;
   String myWord;
   float myRate=1;
+
   MagneticWord(String inWord) {
 		myWord = inWord;
 		mySize=100; 
   };
+  
   MagneticWord(String inWord, int inX, int inY) {
     
     myWord = inWord;

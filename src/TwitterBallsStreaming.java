@@ -6,6 +6,13 @@ import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.util.Timer;
 import java.util.TimerTask;
+import processing.opengl.*;
+
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.media.opengl.*;
+import javax.media.opengl.awt.GLCanvas;
+import javax.media.opengl.GL;
 
 import processing.core.*;
 
@@ -22,7 +29,24 @@ import java.io.InputStreamReader;
 import controlP5.*;
 
 
+import processing.video.*;
+import s373.flob.*;
+
 public class TwitterBallsStreaming extends PApplet{
+
+	Capture video;
+	Flob flob; 
+	PImage videoinput;
+	
+	int videores=128;
+	int fps = 60;
+	PFont font = createFont("arial",10);
+
+	boolean showcamera=false;
+	boolean om=true,omset=false;
+	float velmult = 10000.0f;
+	int vtex=0;
+	
 	public TwitterBallsStreaming theStage;
 	public Timer timer = new Timer();
 	public ControlFrame cf;
@@ -51,18 +75,36 @@ public class TwitterBallsStreaming extends PApplet{
 		cf = addControlFrame("extra", 800,200);
 		textSize(24);
 		theStage = this;
-		size(1240,600);
+		size(1240,600,OPENGL);
+		frameRate(fps);
+		
+		video = new Capture(this, 320, 240, fps);
+		video.start();
+		
+		videoinput = createImage(videores, videores, RGB);
+
+		flob = new Flob(this,videores,videores, width, height);
+		
+		flob.setMirror(true,false);
+		flob.setThresh(10);
+		flob.setFade(45);
+		flob.setMinNumPixels(10);
+		flob.setImage( vtex );
+		
 		words = new CopyOnWriteArrayList<MagneticWord>();
 		queue = new CopyOnWriteArrayList<MagneticWord>();
-	    background(0);
-	     try {
+	    
+		background(0);
+	    
+		try {
 	      setupTwitter();
 	    } catch (TwitterException e) {
 	      e.printStackTrace();
 	    } catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
-	     timer.scheduleAtFixedRate(new TimerTask() {
+
+		timer.scheduleAtFixedRate(new TimerTask() {
 			  @Override
 			  public void run() {
 				  if(queue.size()>0){
@@ -70,8 +112,95 @@ public class TwitterBallsStreaming extends PApplet{
 					  queue.remove(0);
 				  }
 			  }
-			}, 1000,750);
+			}, 1000,100);
   }
+	@Override
+	public void draw() {
+	    stroke(255);
+	    background(0);
+	    if(video.available()) {   
+	        if(!omset){
+	          if(om)
+	            flob.setOm(Flob.CONTINUOUS_DIFFERENCE);
+	          else
+	            flob.setOm(Flob.STATIC_DIFFERENCE);
+	          omset=true;
+	        }
+	        
+	        video.read();
+		
+	        //downscale video image to videoinput pimage
+	        videoinput.copy(video,0,0,320,240,0,0,videores,videores);
+		
+	        flob.calcsimple(  flob.binarize(videoinput) ); 
+	    }
+	    
+
+	    //image(flob.getSrcImage(), 0, 0, width, height);
+
+	    //report presence graphically
+	    fill(255,152,255);
+	    rect(0,0,flob.getPresencef()*width,10);
+
+	    fill(255,100);
+	    stroke(255,200);
+	    //get and use the data
+	    // int numblobs = flob.getNumBlobs(); 
+	    int numtrackedblobs = flob.getNumTBlobs();
+
+	    text("numblobs> "+numtrackedblobs,5,height-10);
+
+	    TBlob tb;
+/*
+	    for(int i = 0; i < numtrackedblobs; i++) {
+	      tb = flob.getTBlob(i);
+	      rect(tb.cx, tb.cy, tb.dimx, tb.dimy );
+	      line(tb.cx, tb.cy, tb.cx + tb.velx * velmult ,tb.cy + tb.vely * velmult );    
+	      String txt = ""+tb.id+" "+tb.cx+" "+tb.cy;
+	      text(txt,tb.cx, tb.cy);
+	    }
+	*/    
+	 //collison
+	    float cdata[] = new float[5];
+	    for(int i=0;i<words.size();i++){
+	      float x = words.get(i).myX / (float) width;
+	      float y = words.get(i).myY / (float) height;
+	      
+	      cdata = flob.imageblobs.postcollidetrackedblobs(x,y, textWidth(words.get(i).myWord) /(float)width); 
+	    
+	      if(cdata[0] > 0) {
+	    	  //words.get(i).toca=true;
+	    	  //TODO: add vectors to words!
+	    	 // words.get(i).vx +=cdata[1]*width*0.015;
+	    	 // words.get(i).vy +=cdata[2]*height*0.015;
+	    	  words.get(i).myX +=cdata[1]*width*0.15;
+	    	  words.get(i).myY +=cdata[2]*height*0.15;
+	    	  println("Collide W/ "+words.get(i).myWord);
+	      } 
+	      else {
+	       // words.get(i).toca=false; 
+	      }
+	      //words.get(i).run(); 
+	    }
+	    
+
+	    if(showcamera){
+	      tint(255,150);
+	      image(flob.videoimg,width-videores,height-videores);
+	      image(flob.videotexbin,width-2*videores,height-videores);
+	      image(flob.videotexmotion,width-3*videores,height-videores);
+	    }
+
+	    
+	    fill(255,10);
+	    rectMode(CENTER);
+	    stroke(127,200);
+	    
+	    
+	    updateInterface();
+	    fill(255,255);
+	    drawWords();
+	  }
 	public ConfigurationBuilder twitterConnect(ConfigurationBuilder cb){
 		 List lines = new List();
 		  try {
@@ -130,7 +259,7 @@ public class TwitterBallsStreaming extends PApplet{
 		          }
 		          String[] tweetWords = input.split(" ", -1);
 		          for(String tweetWord : tweetWords){
-		        	  MagneticWord newWord = new MagneticWord(tweetWord,(float) random(aSpeed)+aSpeed/2+.25);
+		        	  MagneticWord newWord = new MagneticWord(tweetWord,(float) random(aSpeed/2)+aSpeed/4+.25);
 		        	  newWord.myX = lastWordX;
 		        	  queue.add( newWord);
 		        	  lastWordX += textWidth(tweetWord)+4;
@@ -261,14 +390,7 @@ public class TwitterBallsStreaming extends PApplet{
 	    return aWord;
 	}
 
-	@Override
-	public void draw() {
-	    stroke(255);
-	    background(0);
-	    updateInterface();
-	    drawWords();
-	  }
-public void drawWords(){
+	public void drawWords(){
 		for (MagneticWord word :words) {
 
 	    	word = updateWord(word);
@@ -279,7 +401,7 @@ public void drawWords(){
 		    	drawWord(keepThisOneUp);
 		    	keepThisOneUp.myDecay = 255;	
 		    }
-		drawWordThumbnails();
+		//drawWordThumbnails();
 	
 	
 	}
@@ -382,6 +504,22 @@ ControlFrame addControlFrame(String theName, int theWidth, int theHeight) {
 		cf.cp5.get(Textfield.class,"filter").setText("");
 		
 	}
+
+	public void keyPressed(){
+	  if(key==' ')
+	    flob.setBackground(videoinput); 
+	  if(key=='o'){
+	    om^=true; 
+	    omset=false;
+	  }
+	  if(key=='i')
+	    showcamera^=true;
+	  if(key=='v'){
+	    vtex = (vtex + 1) % 4;
+	    flob.setVideoTex(  vtex  );
+	  }
+	}
+
     public void mouseReleased(){
 	  if(mouseY>200){
   		  int totalX=0;
