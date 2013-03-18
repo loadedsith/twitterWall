@@ -136,7 +136,7 @@ public class TwitterBallsStreaming extends PApplet{
 	    }
 	    
 
-	    //image(flob.getSrcImage(), 0, 0, width, height);
+	    image(flob.getSrcImage(), 0, 0, width, height);
 
 	    //report presence graphically
 	    fill(255,152,255);
@@ -401,7 +401,7 @@ public class TwitterBallsStreaming extends PApplet{
 		    	drawWord(keepThisOneUp);
 		    	keepThisOneUp.myDecay = 255;	
 		    }
-		//drawWordThumbnails();
+		drawWordThumbnails();
 	
 	
 	}
