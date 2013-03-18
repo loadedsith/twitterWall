@@ -231,11 +231,13 @@ public class TwitterBallsStreaming extends PApplet {
 			while ((strLine = br.readLine()) != null) {
 				lines.add(strLine);
 			}
+		
 			cb.setOAuthConsumerKey(lines.getItem(0));
 			cb.setOAuthConsumerSecret(lines.getItem(1));
 			cb.setOAuthAccessToken(lines.getItem(2));
 			cb.setOAuthAccessTokenSecret(lines.getItem(3));
-		} catch (IOException e) {
+		}
+		 catch (IOException e) {
 			e.printStackTrace();
 			exit();
 		}
