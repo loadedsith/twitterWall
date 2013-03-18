@@ -1,4 +1,4 @@
-import java.util.Vector;
+
 
 import processing.core.*;
 
@@ -18,7 +18,7 @@ import processing.core.*;
   int thumbX;
   String myWord;
   float myRate=1;
-
+  int myColor;
   MagneticWord(String inWord) {
 		myWord = inWord;
 		mySize=100; 
