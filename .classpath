@@ -5,8 +5,6 @@
 	<classpathentry kind="lib" path="/Volumes/HSF Secondary/Documents/processing/libraries/twitter4j-3.0.3/lib/twitter4j-core-3.0.3.jar"/>
 	<classpathentry kind="lib" path="/Volumes/HSF Secondary/Documents/processing/libraries/twitter4j-3.0.3/lib/twitter4j-stream-3.0.3.jar"/>
 	<classpathentry kind="lib" path="src/library/controlP5.jar" sourcepath="src/library/controlP5.jar"/>
-	<classpathentry kind="lib" path="library/core.jar" sourcepath="library/core.jar"/>
-	<classpathentry kind="lib" path="library/flob.jar"/>
 	<classpathentry kind="lib" path="modes/java/libraries/video/library/gstreamer-java.jar"/>
 	<classpathentry kind="lib" path="modes/java/libraries/video/library/jna.jar"/>
 	<classpathentry kind="lib" path="modes/java/libraries/video/library/video.jar"/>
@@ -14,6 +12,7 @@
 	<classpathentry kind="lib" path="core/library/gluegen-rt.jar"/>
 	<classpathentry kind="lib" path="core/library/jogl-all-natives-macosx-universal.jar"/>
 	<classpathentry kind="lib" path="core/library/jogl-all.jar"/>
-	<classpathentry kind="lib" path="library/colorLib.jar"/>
+	<classpathentry kind="lib" path="/Volumes/HSF Secondary/Documents/processing/libraries/flob/library/flob.jar"/>
+	<classpathentry kind="lib" path="/Applications/Processing.app/Contents/Resources/Java/core/library/core.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

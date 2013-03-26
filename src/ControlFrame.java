@@ -10,7 +10,7 @@ public class ControlFrame extends PApplet {
 	 */
 	private static final long serialVersionUID = 1L;
 	public Textfield filterField;
-	public String filter= "drwho, doctorwho, france, biggerontheinside, #thewakingdead, #walkingdead, #dress, #amazing, #starwars, #3dprinter, #3dprinted, #diy, #bigbang, big bang theory, #Jedi, #sith, #bigbangtheory, #community";
+	public String filter= "drwho, doctorwho, biggerontheinside, #thewakingdead, #walkingdead, #dress, #amazing, #starwars, #3dprinter, #3dprinted, #diy, #Jedi, #sith, #community";
 	public Bang reloadFilterButton;
 	public Bang defaultFilterButton;
 	public Bang clearButton;
