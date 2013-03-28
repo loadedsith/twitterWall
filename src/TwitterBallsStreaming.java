@@ -9,6 +9,7 @@ import java.util.TimerTask;
 import processing.core.*;
 
 import twitter4j.*;
+import twitter4j.auth.AccessToken;
 import twitter4j.conf.ConfigurationBuilder;
 import java.awt.Frame;
 import java.io.BufferedReader;
@@ -36,12 +37,20 @@ public class TwitterBallsStreaming extends PApplet {
 	int wordFallRate = 200;
 	int videores = 128;
 	int fps = 60;
+	String topic = "What is good, internets?";
+	String instructions= "Respond by tweeting @Magnetic_Tweets";
+	String[] authorizedUsers = {"Magnetic_Tweets"};
 	PFont font = loadFont("InterstateBlackCompressed-28.vlw");
+	
 	int foreground = color(0,255);
 	int background = color(255,255);
-	int creditsForeground = color(255,150);
+	int creditsForeground = color(0,150);
+	int topicsForeground = creditsForeground;
 	int[] colors = {color(155),color(200),color(255)};
+	float topicFontSize;//this is set dynamically based on the lenght of the topic, once in setup() once per listenForCommand() topic update
 	
+	float creditsFontSize = 14;
+	int creditsRowHeight = 20;
 	boolean showcamera = false;
 	boolean om = true, omset = false;
 	float velmult = 10000.0f;
@@ -56,10 +65,16 @@ public class TwitterBallsStreaming extends PApplet {
 	public String defaultFilter = "drwho, doctorwho, biggerontheinside, #thewakingdead, #walkingdead, #dress, #amazing, #starwars, #3dprinter, #3dprinted, #diy, #Jedi, #sith, #community";
 	public String filter = defaultFilter;
 	private static final long serialVersionUID = -3813207765066128911L;
-	CopyOnWriteArrayList<MagneticWord> words;
-	CopyOnWriteArrayList<MagneticWord> queue;
+	String OAuthConsumerKey;
+	String OAuthConsumerSecret;
+	String OAuthAccessToken;
+	String OAuthAccessTokenSecret;
+	CopyOnWriteArrayList<MagneticWord> words = new CopyOnWriteArrayList<MagneticWord>();
+	CopyOnWriteArrayList<MagneticWord> queue = new CopyOnWriteArrayList<MagneticWord>();
 	TwitterStream twitterStream;
+	TwitterStream twitterCommandStream;
 	StatusListener listener;
+	UserStreamListener commandListener;
 	int lastPictureEndsX = 0;
 	public int lastThumbnailWidthX = 0;
 	public MagneticWord keepThisOneUp;
@@ -77,35 +92,28 @@ public class TwitterBallsStreaming extends PApplet {
 
 	public void setup() {
 
-		size(1680, 1050, OPENGL);
-		cf = addControlFrame("extra", 800, 200);
-		textSize(24);
+		size(680, 450);
+		
 		theStage = this;
+
+		cf = addControlFrame("extra", 800, 200);
+		
+		textSize(24);
+		topicFontSize = getFontSizeToFitThisTextToThisWidth(topic,width-100);
 		
 	//	GL2 gl = ((PGraphicsOpenGL)g).beginPGL().gl.getGL2();
 		frameRate(fps);
-
-		video = new Capture(this, 320, 240, fps);
-		video.start();
-
-		videoinput = createImage(videores, videores, RGB);
-
-		flob = new Flob(this, videores, videores, width, height);
-
-		flob.setMirror(true, false);
-		flob.setThresh(10);
-		flob.setFade(45);
-		flob.setMinNumPixels(10);
-		flob.setImage(vtex);
-
-		words = new CopyOnWriteArrayList<MagneticWord>();
-		queue = new CopyOnWriteArrayList<MagneticWord>();
+		
+		setupCamera();
+		setupBlobDetection();
 
 		background(0);
 
 		try {
 			setupTwitter();
-		} catch (TwitterException e) {
+			setupCommandTwitter();
+			readTimeLineForCommands();
+			} catch (TwitterException e) {
 			e.printStackTrace();
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -121,6 +129,291 @@ public class TwitterBallsStreaming extends PApplet {
 				}
 			}
 		}, 1000, wordFallRate);
+	}
+	public ConfigurationBuilder twitterConnect(ConfigurationBuilder cb) {
+		
+		List lines = new List();
+		try {
+			FileInputStream fstream = new FileInputStream("src/Files/keys.txt");
+			DataInputStream in = new DataInputStream(fstream);
+	
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			while ((strLine = br.readLine()) != null) {
+				lines.add(strLine);
+			}
+			OAuthConsumerKey = lines.getItem(0);
+			OAuthConsumerSecret = lines.getItem(1);
+			OAuthAccessToken = lines.getItem(2);
+			OAuthAccessTokenSecret = lines.getItem(3);
+			
+			cb.setOAuthConsumerKey(OAuthConsumerKey);
+			cb.setOAuthConsumerSecret(OAuthConsumerSecret);
+			cb.setOAuthAccessToken(OAuthAccessToken);
+			cb.setOAuthAccessTokenSecret(OAuthAccessTokenSecret);
+		}
+		 catch (IOException e) {
+			e.printStackTrace();
+			exit();
+		}
+		return cb;
+	}
+	public void readTimeLineForCommands(){
+		
+		println(":");
+		ConfigurationBuilder cb = new ConfigurationBuilder();
+		cb = twitterConnect(cb);
+
+		Twitter twitterTimeLine = new TwitterFactory(cb.build()).getInstance();
+		  
+		  //query.setRpp(100);
+		  
+		 
+		  //Try making the query request.
+		  try {
+			  ResponseList<Status> statuses = twitterTimeLine.getUserTimeline();
+		   //ResponseList<Status> statuses = twitterTimeLine.getHomeTimeline();
+		    //System.out.println("Showing home timeline.");
+		    for (Status status : statuses) {
+		        System.out.println("Home Timeline readout: Listening for commands"+status.getUser().getName() + ":" +
+		                           status.getText());
+		      listenForCommand(status);
+		    };
+		  }
+		  catch (TwitterException te) {
+		    println("Couldn't connect: " + te);
+		  };
+	    twitterTimeLine.shutdown();
+	}
+	public void setupCamera(){
+		video = new Capture(this, 320, 240, fps);
+		video.start();
+
+		videoinput = createImage(videores, videores, RGB);
+
+	}
+	public void setupBlobDetection(){
+
+		flob = new Flob(this, videores, videores, width, height);
+
+		flob.setMirror(true, false);
+		flob.setThresh(10);
+		flob.setFade(45);
+		flob.setMinNumPixels(10);
+		flob.setImage(vtex);
+		
+	}
+	
+	public void setupCommandTwitter() throws TwitterException, FileNotFoundException {
+		ConfigurationBuilder cb = new ConfigurationBuilder();
+		cb = twitterConnect(cb);
+	
+		twitterCommandStream = new TwitterStreamFactory(cb.build()).getInstance();
+	
+		commandListener = new UserStreamListener() {
+
+			@Override
+			public void onDeletionNotice(
+					StatusDeletionNotice statusDeletionNotice) {
+				System.out.println("Got a status deletion notice id:"
+						+ statusDeletionNotice.getStatusId());
+			}
+
+			@Override
+			public void onScrubGeo(long userId, long upToStatusId) {
+				System.out.println("Got scrub_geo event userId:" + userId
+						+ " upToStatusId:" + upToStatusId);
+			}
+
+			@Override
+			public void onStallWarning(StallWarning arg0) {
+				System.out.println("Got stall warning");
+			}
+
+			@Override
+			public void onStatus(Status status) {
+				
+				listenForCommand(status);
+			}
+
+			@Override
+			public void onTrackLimitationNotice(int arg0) {
+				
+			}
+
+			@Override
+			public void onException(Exception arg0) {
+				
+			}
+
+			@Override
+			public void onBlock(User arg0, User arg1) {
+				
+			}
+
+			@Override
+			public void onDeletionNotice(long arg0, long arg1) {
+
+				
+			}
+
+			@Override
+			public void onDirectMessage(DirectMessage directMessage) {
+				println(directMessage.getText());
+
+			}
+
+			@Override
+			public void onFavorite(User arg0, User arg1, Status arg2) {
+
+				
+			}
+
+			@Override
+			public void onFollow(User arg0, User arg1) {
+
+				
+			}
+
+			@Override
+			public void onFriendList(long[] arg0) {
+				
+			}
+
+			@Override
+			public void onUnblock(User arg0, User arg1) {
+
+				
+			}
+
+			@Override
+			public void onUnfavorite(User arg0, User arg1, Status arg2) {
+
+				
+			}
+
+			@Override
+			public void onUserListCreation(User arg0, UserList arg1) {
+
+				
+			}
+
+			@Override
+			public void onUserListDeletion(User arg0, UserList arg1) {
+				
+				
+			}
+
+			@Override
+			public void onUserListMemberAddition(User arg0, User arg1,
+					UserList arg2) {
+			
+				
+			}
+
+			@Override
+			public void onUserListMemberDeletion(User arg0, User arg1,
+					UserList arg2) {
+			
+				
+			}
+
+			@Override
+			public void onUserListSubscription(User arg0, User arg1,
+					UserList arg2) {
+			
+				
+			}
+
+			@Override
+			public void onUserListUnsubscription(User arg0, User arg1,
+					UserList arg2) {
+			
+				
+			}
+
+			@Override
+			public void onUserListUpdate(User arg0, UserList arg1) {
+			
+				
+			}
+
+			@Override
+			public void onUserProfileUpdate(User arg0) {
+			
+				
+			}
+
+		};
+		
+		twitterCommandStream.addListener(commandListener); 
+		twitterCommandStream.user(authorizedUsers);
+		
+	
+	}
+	public void setupTwitter() throws TwitterException, FileNotFoundException {
+		ConfigurationBuilder cb = new ConfigurationBuilder();
+		cb = twitterConnect(cb);
+	
+		twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
+	
+		listener = new StatusListener() {
+	
+			@Override
+			public void onStatus(Status status) {
+				
+				if (status.getMediaEntities() != null && showImagePosts==true) {
+					addPhotoTweetToTheQueue(status);
+					
+				
+				}else{
+					addTweetToTheQueue(status);
+					
+				}
+	
+			}
+	
+			@Override
+			public void onDeletionNotice(
+					StatusDeletionNotice statusDeletionNotice) {
+				System.out.println("Got a status deletion notice id:"
+						+ statusDeletionNotice.getStatusId());
+			}
+	
+			@Override
+			public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
+				System.out.println("Got track limitation notice:"
+						+ numberOfLimitedStatuses);
+			}
+	
+			@Override
+			public void onScrubGeo(long userId, long upToStatusId) {
+				System.out.println("Got scrub_geo event userId:" + userId
+						+ " upToStatusId:" + upToStatusId);
+			}
+	
+			@Override
+			public void onException(Exception ex) {
+				ex.printStackTrace();
+			}
+	
+			@Override
+			public void onStallWarning(StallWarning arg0) {
+	
+				System.out.println("Got stall warning");
+	
+			}
+		};
+	
+		FilterQuery fq = new FilterQuery();
+		String keywords[] = filter.split(",", -1);
+	
+		fq.track(keywords);
+	
+		twitterStream.addListener(listener);
+		twitterStream.filter(fq);
+		
+	
 	}
 
 	@Override
@@ -176,20 +469,7 @@ public class TwitterBallsStreaming extends PApplet {
 		//int numtrackedblobs = flob.getNumTBlobs();
 
 		// text("numblobs> "+numtrackedblobs,5,height-10);
-		int row = 20;
-		textSize(14);
-		fill(creditsForeground);
-		stroke(255, 200);
-		
-		text("Pending Tweets" + queue.size(), 5, height - 6 * row + padding);
-		text("MagneticTweets", 5, height - 4 * row + padding);
-		text("by", 5, height - 3 * row + padding);
-		text("Graham.p.heath@gmail.com", 5, height - 2 * row + padding);
-		text("Adrienne.Canzolino@loop.colum.edu", 5, height - 1 * row + padding);
-		
-		textSize(27);
-		fill(creditsForeground);
-		//tint(creditsForeground);
+		drawHUD();
 		//TBlob tb;
 //		for(int i = 0; i < numtrackedblobs; i++) { tb = flob.getTBlob(i);
 //		rect(tb.cx, tb.cy, tb.dimx, tb.dimy ); line(tb.cx, tb.cy, tb.cx +
@@ -207,8 +487,8 @@ public class TwitterBallsStreaming extends PApplet {
 
 			if (cdata[0] > 0) {
 				words.get(i).toca = true;
-				words.get(i).myX += cdata[1] * width * 0.15;
-				words.get(i).myY += cdata[2] * height * 0.15;
+				words.get(i).myX += cdata[1] * width * 0.1;
+				words.get(i).myY += cdata[2] * height * 0.1;
 				// println("Collide W/ "+words.get(i).myWord);
 			} else {
 				words.get(i).toca = false;
@@ -238,28 +518,76 @@ public class TwitterBallsStreaming extends PApplet {
 		drawWords();
 	}
 
-	public ConfigurationBuilder twitterConnect(ConfigurationBuilder cb) {
-		List lines = new List();
-		try {
-			FileInputStream fstream = new FileInputStream("src/Files/keys.txt");
-			DataInputStream in = new DataInputStream(fstream);
-
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-			String strLine;
-			while ((strLine = br.readLine()) != null) {
-				lines.add(strLine);
+	public void drawWordThumbnails() {
+		for (MagneticWord word : words) {
+			if (word.myThumbnail != null) {
+	
+				word = drawWordThumb(word);
 			}
+		}
+	}
+
+	public MagneticWord drawWordThumb(MagneticWord aWord) {
+	
+		aWord.thumbX = 0;
+		int totalX = 0;
+		for (int i = words.size() - 1; i >= 0; i--) {
+	
+			MagneticWord word = (MagneticWord) words.get(i);
+			if (word.myThumbnail != null) {
+	
+				tint(255, word.myDecay);
+				image(word.myThumbnail, totalX, height
+						- word.myThumbnail.height);
+				g.removeCache(word.myThumbnail);
+				totalX = totalX + word.myThumbnail.width;
+	
+				word.thumbX += word.myThumbnail.width;
+				if (totalX + word.myThumbnail.width > width) {
+	
+					words.remove(word);
+				}
+			}
+	
+		}
+		return aWord;
+	}
+
+	public void drawWords() {
+		for (MagneticWord word : words) {
+	
+			word = updateWord(word);
+			word = drawWord(word);
+	
+		}
+		if (keepThisOneUp != null) {
+			drawWord(keepThisOneUp);
+			keepThisOneUp.myDecay = 255;
+		}
+		drawWordThumbnails();
+	
+	}
+	public void drawHUD(){
+		fill(topicsForeground);
 		
-			cb.setOAuthConsumerKey(lines.getItem(0));
-			cb.setOAuthConsumerSecret(lines.getItem(1));
-			cb.setOAuthAccessToken(lines.getItem(2));
-			cb.setOAuthAccessTokenSecret(lines.getItem(3));
-		}
-		 catch (IOException e) {
-			e.printStackTrace();
-			exit();
-		}
-		return cb;
+		textSize(topicFontSize);
+		
+		text(topic,width-textWidth(topic)-10,50);
+		
+		
+		textSize(creditsFontSize);
+		fill(creditsForeground);
+		stroke(255, 200);
+		
+		text("Pending Tweets" + queue.size(), 5, height - 6 * creditsRowHeight + padding);
+		text("MagneticTweets", 5, height - 4 * creditsRowHeight + padding);
+		text("by", 5, height - 3 * creditsRowHeight + padding);
+		text("Graham.p.heath@gmail.com", 5, height - 2 * creditsRowHeight + padding);
+		text("Adrienne.Canzolino@loop.colum.edu", 5, height - 1 * creditsRowHeight + padding);
+		
+		textSize(27);
+		fill(creditsForeground);
+		//tint(creditsForeground);
 	}
 	public void addPhotoTweetToTheQueue(Status status){
 		String tweetText = status.getUser().getScreenName() + " - "
@@ -307,72 +635,26 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 		lastWordX = (int) random(width - 100);
 	}
-	public void setupTwitter() throws TwitterException, FileNotFoundException {
-		ConfigurationBuilder cb = new ConfigurationBuilder();
-		cb = twitterConnect(cb);
-
-		twitterStream = new TwitterStreamFactory(cb.build()).getInstance();
-
-		listener = new StatusListener() {
-
-			@Override
-			public void onStatus(Status status) {
-				
-				if (status.getMediaEntities() != null && showImagePosts==true) {
-					addPhotoTweetToTheQueue(status);
-					
-				
-				}else{
-					addTweetToTheQueue(status);
+	public void listenForCommand(Status status){
+		println("Got a command!");
+		String userName = status.getUser().getName();
+		println("user: "+userName);
+		if(userName.equals("Magnetic Tweets") || userName.equals("loadedsith")){
+			println("Got an authed user!");
+			String tweet = status.getText();
+			
+			if(tweet.startsWith("Topic:")){
+				tweet = tweet.substring(6, tweet.length());
+				while(tweet.substring(0,1)==" "||tweet.substring(0,1)==":"){
+					tweet = tweet.substring(1,tweet.length());
 					
 				}
+				topic = tweet;
+				topicFontSize = getFontSizeToFitThisTextToThisWidth(topic,width-100);
 
 			}
-
-			@Override
-			public void onDeletionNotice(
-					StatusDeletionNotice statusDeletionNotice) {
-				System.out.println("Got a status deletion notice id:"
-						+ statusDeletionNotice.getStatusId());
-			}
-
-			@Override
-			public void onTrackLimitationNotice(int numberOfLimitedStatuses) {
-				System.out.println("Got track limitation notice:"
-						+ numberOfLimitedStatuses);
-			}
-
-			@Override
-			public void onScrubGeo(long userId, long upToStatusId) {
-				System.out.println("Got scrub_geo event userId:" + userId
-						+ " upToStatusId:" + upToStatusId);
-			}
-
-			@Override
-			public void onException(Exception ex) {
-				ex.printStackTrace();
-			}
-
-			@Override
-			public void onStallWarning(StallWarning arg0) {
-
-				System.out.println("Got stall warning");
-
-			}
-		};
-
-		FilterQuery fq = new FilterQuery();
-		String keywords[] = filter.split(",", -1);
-
-		fq.track(keywords);
-
-		twitterStream.addListener(listener);
-		twitterStream.filter(fq);
-
-	}
-
-	public void queuePop() {
-
+		}
+		
 	}
 
 	public void updateInterface() {
@@ -393,56 +675,6 @@ public class TwitterBallsStreaming extends PApplet {
 		} catch (Exception e) {
 			println(e.getMessage());
 		}
-	}
-
-	public void drawWordThumbnails() {
-		for (MagneticWord word : words) {
-			if (word.myThumbnail != null) {
-
-				word = drawWordThumb(word);
-			}
-		}
-	}
-
-	public MagneticWord drawWordThumb(MagneticWord aWord) {
-
-		aWord.thumbX = 0;
-		int totalX = 0;
-		for (int i = words.size() - 1; i >= 0; i--) {
-
-			MagneticWord word = (MagneticWord) words.get(i);
-			if (word.myThumbnail != null) {
-
-				tint(255, word.myDecay);
-				image(word.myThumbnail, totalX, height
-						- word.myThumbnail.height);
-				g.removeCache(word.myThumbnail);
-				totalX = totalX + word.myThumbnail.width;
-
-				word.thumbX += word.myThumbnail.width;
-				if (totalX + word.myThumbnail.width > width) {
-
-					words.remove(word);
-				}
-			}
-
-		}
-		return aWord;
-	}
-
-	public void drawWords() {
-		for (MagneticWord word : words) {
-
-			word = updateWord(word);
-			word = drawWord(word);
-
-		}
-		if (keepThisOneUp != null) {
-			drawWord(keepThisOneUp);
-			keepThisOneUp.myDecay = 255;
-		}
-		drawWordThumbnails();
-
 	}
 
 	public MagneticWord updateWord(MagneticWord aWord) {
@@ -558,19 +790,24 @@ public class TwitterBallsStreaming extends PApplet {
 	}
 
 	public void keyPressed() {
-		if (key == ' ')
+		if (key == ' '){
 			flob.setBackground(videoinput);
+		}
 		
 		if (key == 'o') {
 			om ^= true;
 			omset = false;
 		}
-		if (key == 'i')
+		
+		if (key == 'i'){
 			showcamera ^= true;
+		}
+		
 		if (key == 'v') {
 			vtex = (vtex + 1) % 4;
 			flob.setVideoTex(vtex);
 		}
+		
 	}
 
 	public void mouseReleased() {
