@@ -5,11 +5,11 @@ import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.net.*;
 
 import processing.core.*;
 
 import twitter4j.*;
-import twitter4j.auth.AccessToken;
 import twitter4j.conf.ConfigurationBuilder;
 import java.awt.Frame;
 import java.io.BufferedReader;
@@ -18,6 +18,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.w3c.dom.Document;
+
 
 
 
@@ -34,12 +40,12 @@ public class TwitterBallsStreaming extends PApplet {
 	Capture video;
 	Flob flob;
 	PImage videoinput;
-	int wordFallRate = 200;
+	int wordFallRate =1000;
 	int videores = 128;
-	int fps = 60;
+	int fps = 30;
 	String topic = "What is good, internets?";
 	String instructions= "Respond by tweeting @Magnetic_Tweets";
-	String[] authorizedUsers = {"Magnetic_Tweets"};
+	String[] authorizedUsers = {"Magnetic_Tweets","loadedsith"};
 	PFont font = loadFont("InterstateBlackCompressed-28.vlw");
 	
 	int foreground = color(0,255);
@@ -48,7 +54,9 @@ public class TwitterBallsStreaming extends PApplet {
 	int topicsForeground = creditsForeground;
 	int[] colors = {color(155),color(200),color(255)};
 	float topicFontSize;//this is set dynamically based on the lenght of the topic, once in setup() once per listenForCommand() topic update
-	
+	int flobMode = Flob.CONTINUOUS_DIFFERENCE;
+	//Flob.CONTINUOUS_DIFFERENCE;
+	//Flob.STATIC_DIFFERENCE;
 	float creditsFontSize = 14;
 	int creditsRowHeight = 20;
 	boolean showcamera = false;
@@ -69,8 +77,10 @@ public class TwitterBallsStreaming extends PApplet {
 	String OAuthConsumerSecret;
 	String OAuthAccessToken;
 	String OAuthAccessTokenSecret;
+	String kulerKey;
+	String kulerQuery ="blue";
 	CopyOnWriteArrayList<MagneticWord> words = new CopyOnWriteArrayList<MagneticWord>();
-	CopyOnWriteArrayList<MagneticWord> queue = new CopyOnWriteArrayList<MagneticWord>();
+	CopyOnWriteArrayList<Status> queue = new CopyOnWriteArrayList<Status>();
 	TwitterStream twitterStream;
 	TwitterStream twitterCommandStream;
 	StatusListener listener;
@@ -83,13 +93,51 @@ public class TwitterBallsStreaming extends PApplet {
 			KeyEvent.VK_CAPS_LOCK);
 
 	int padding = 10;
-
+	
+	int wordsSizeLimit = 100;
+	int queueIndex = 0;
+	int perlinScale= 10;
+	double perlinSeedIncrement= .01;
 	public static void main(String args[]) {
 		 PApplet.main(new String[] { "TwitterBallsStreaming" });
 		//PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
 
 	}
+	public void getKulerPallet() throws Exception {
 
+		URL url = new URL("https://kuler-api.adobe.com/rss/search.cfm?key="+kulerKey+"&searchQuery="+kulerQuery);
+	    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+	    conn.setDoOutput(true);
+	    conn.setUseCaches(false);
+	    conn.setAllowUserInteraction(false); 
+	    
+	    System.out.println(conn.getResponseCode());
+	    System.out.println(conn.getResponseMessage());
+	    
+        BufferedReader br = new BufferedReader(new InputStreamReader(
+				(conn.getInputStream())));
+ 
+		String output;
+		System.out.println("Output from Server .... \n");
+		String kulerRawXML = "";
+		while ((output = br.readLine()) != null) {
+			kulerRawXML+=output;
+			
+		}
+		DocumentBuilder dBuilder = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder();
+
+		Document doc = dBuilder.parse((String) kulerRawXML);
+		
+		if (doc.hasChildNodes()) {
+			 
+			println(doc.getChildNodes());
+	 
+		}
+	 
+		
+		conn.disconnect();
+		}
 	public void setup() {
 
 		size(680, 450);
@@ -97,11 +145,10 @@ public class TwitterBallsStreaming extends PApplet {
 		theStage = this;
 
 		cf = addControlFrame("extra", 800, 200);
-		
+		readKeysFile();
 		textSize(24);
-		topicFontSize = getFontSizeToFitThisTextToThisWidth(topic,width-100);
-		
-	//	GL2 gl = ((PGraphicsOpenGL)g).beginPGL().gl.getGL2();
+		topicFontSize = findFontSizeToFitThisTextToThisWidth(topic,width-100);
+
 		frameRate(fps);
 		
 		setupCamera();
@@ -122,68 +169,24 @@ public class TwitterBallsStreaming extends PApplet {
 		timer.scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
-
-				if (queue.size() > 0) {
-					words.add(queue.get(0));
-					queue.remove(0);
+				int size = queue.size();
+				if (size > 0) {
+					
+					if(size <= queueIndex){
+						queueIndex=0;
+					}
+					
+					addQueuedTweetToWords(queue.get(queueIndex++));
+					//words.add(queue.get(0));
+					//while(words.size()>wordsSizeLimit){
+					//	queue.remove(0);
+					//}
+					
 				}
 			}
 		}, 1000, wordFallRate);
-	}
-	public ConfigurationBuilder twitterConnect(ConfigurationBuilder cb) {
 		
-		List lines = new List();
-		try {
-			FileInputStream fstream = new FileInputStream("src/Files/keys.txt");
-			DataInputStream in = new DataInputStream(fstream);
-	
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-			String strLine;
-			while ((strLine = br.readLine()) != null) {
-				lines.add(strLine);
-			}
-			OAuthConsumerKey = lines.getItem(0);
-			OAuthConsumerSecret = lines.getItem(1);
-			OAuthAccessToken = lines.getItem(2);
-			OAuthAccessTokenSecret = lines.getItem(3);
-			
-			cb.setOAuthConsumerKey(OAuthConsumerKey);
-			cb.setOAuthConsumerSecret(OAuthConsumerSecret);
-			cb.setOAuthAccessToken(OAuthAccessToken);
-			cb.setOAuthAccessTokenSecret(OAuthAccessTokenSecret);
-		}
-		 catch (IOException e) {
-			e.printStackTrace();
-			exit();
-		}
-		return cb;
-	}
-	public void readTimeLineForCommands(){
 		
-		println(":");
-		ConfigurationBuilder cb = new ConfigurationBuilder();
-		cb = twitterConnect(cb);
-
-		Twitter twitterTimeLine = new TwitterFactory(cb.build()).getInstance();
-		  
-		  //query.setRpp(100);
-		  
-		 
-		  //Try making the query request.
-		  try {
-			  ResponseList<Status> statuses = twitterTimeLine.getUserTimeline();
-		   //ResponseList<Status> statuses = twitterTimeLine.getHomeTimeline();
-		    //System.out.println("Showing home timeline.");
-		    for (Status status : statuses) {
-		        System.out.println("Home Timeline readout: Listening for commands"+status.getUser().getName() + ":" +
-		                           status.getText());
-		      listenForCommand(status);
-		    };
-		  }
-		  catch (TwitterException te) {
-		    println("Couldn't connect: " + te);
-		  };
-	    twitterTimeLine.shutdown();
 	}
 	public void setupCamera(){
 		video = new Capture(this, 320, 240, fps);
@@ -361,15 +364,8 @@ public class TwitterBallsStreaming extends PApplet {
 	
 			@Override
 			public void onStatus(Status status) {
+				queue.add(status);
 				
-				if (status.getMediaEntities() != null && showImagePosts==true) {
-					addPhotoTweetToTheQueue(status);
-					
-				
-				}else{
-					addTweetToTheQueue(status);
-					
-				}
 	
 			}
 	
@@ -443,9 +439,9 @@ public class TwitterBallsStreaming extends PApplet {
 		if (video.available()) {
 			if (!omset) {
 				if (om)
-					flob.setOm(Flob.CONTINUOUS_DIFFERENCE);
+					flob.setOm(flobMode);
 				else
-					flob.setOm(Flob.CONTINUOUS_DIFFERENCE);
+					flob.setOm(flobMode);
 				omset = true;
 			}
 
@@ -460,7 +456,7 @@ public class TwitterBallsStreaming extends PApplet {
 
 		// report presence graphically
 		fill(foreground);
-		rect(0, 0, flob.getPresencef() * width, 10);
+		//rect(0, 0, flob.getPresencef() * width, 10);
 
 		
 		
@@ -589,72 +585,32 @@ public class TwitterBallsStreaming extends PApplet {
 		fill(creditsForeground);
 		//tint(creditsForeground);
 	}
-	public void addPhotoTweetToTheQueue(Status status){
-		String tweetText = status.getUser().getScreenName() + " - "
-				+ status.getText();
-		float aSpeed = (float) (random(1) + .5);
-		for (MediaEntity entity : status.getMediaEntities()) {
 
-			if (entity.getType().equals("photo")) {
+	public MagneticWord drawWord(MagneticWord aWord) {
 	
-				MagneticWord newWord = new MagneticWord(tweetText,
-						loadImage(entity.getMediaURL()), aSpeed);
-	
-				if ((lastPictureEndsX + newWord.myImage.width) <= width) {
-	
-					newWord.myX = lastPictureEndsX;
-					lastPictureEndsX += newWord.myImage.width;
-	
-				} else {
-					println("reset");
-					newWord.myX = 0;
-					lastPictureEndsX = 0;
-				}
-	
-				queue.add(newWord);
-	
-			}
-		}
-	}
-	public void addTweetToTheQueue(Status status){
-		String tweetText = status.getUser().getScreenName() + " - "
-				+ status.getText();
-		String[] tweetWords = tweetText.split(" ", -1);
-		float aSpeed = (float) (random(1) + .5);
-		for (String tweetWord : tweetWords) {
-			MagneticWord newWord = new MagneticWord(tweetWord, aSpeed);
-			newWord.myX = lastWordX;
-
-			queue.add(newWord);
-
-			lastWordX += textWidth(tweetWord) + 4;
-			if (lastWordX > width) {
-				lastWordX = padding;
-			}
-
-		}
-		lastWordX = (int) random(width - 100);
-	}
-	public void listenForCommand(Status status){
-		println("Got a command!");
-		String userName = status.getUser().getName();
-		println("user: "+userName);
-		if(userName.equals("Magnetic Tweets") || userName.equals("loadedsith")){
-			println("Got an authed user!");
-			String tweet = status.getText();
-			
-			if(tweet.startsWith("Topic:")){
-				tweet = tweet.substring(6, tweet.length());
-				while(tweet.substring(0,1)==" "||tweet.substring(0,1)==":"){
-					tweet = tweet.substring(1,tweet.length());
-					
-				}
-				topic = tweet;
-				topicFontSize = getFontSizeToFitThisTextToThisWidth(topic,width-100);
-
-			}
-		}
 		
+		int fontSize = 24;
+		if (aWord.myImage != null) {
+			tint(255, aWord.myDecay);
+			image(aWord.myImage, aWord.myX, aWord.myY);
+			g.removeCache(aWord.myImage);
+			
+	
+		}
+		fill(aWord.myColor);
+		//tint(foreground);
+		textSize((float) (fontSize - (fontSize * .1)));
+		
+		text(aWord.myWord, aWord.myX + 2, aWord.myY,10);
+		// println(aWord.myWord);
+		if (aWord.myImage != null) {
+	
+			tint(255, aWord.myDecay);
+	
+		}
+		fill(foreground);
+		return aWord;
+	
 	}
 
 	public void updateInterface() {
@@ -680,11 +636,11 @@ public class TwitterBallsStreaming extends PApplet {
 	public MagneticWord updateWord(MagneticWord aWord) {
 		if (aWord.myY <= height + 10) {
 			aWord.myY += aWord.myRate;
-
+	
 		} else if (aWord.myImage == null) {
-
+	
 			words.remove(aWord);
-
+	
 		}
 		if (aWord.myDecay < 0) {
 			words.remove(aWord);
@@ -694,13 +650,169 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 		if (words.size() > 3) {
 			aWord.myDecay -= .2;
-
-			tint(255, aWord.myDecay);
 		}
 		return aWord;
 	}
+	public void readKeysFile(){
+		List lines = new List();
+		try {
+			FileInputStream fstream = new FileInputStream("src/Files/keys.txt");
+			DataInputStream in = new DataInputStream(fstream);
+	
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+			String strLine;
+			while ((strLine = br.readLine()) != null) {
+				lines.add(strLine);
+			}
+			OAuthConsumerKey = lines.getItem(0);
+			OAuthConsumerSecret = lines.getItem(1);
+			OAuthAccessToken = lines.getItem(2);
+			OAuthAccessTokenSecret = lines.getItem(3);
+			kulerKey = lines.getItem(4);
+			
+			
+		}
+		 catch (IOException e) {
+			e.printStackTrace();
+			exit();
+		}
+	}
+	public ConfigurationBuilder twitterConnect(ConfigurationBuilder cb) {
+		
+		cb.setOAuthConsumerKey(OAuthConsumerKey);
+		cb.setOAuthConsumerSecret(OAuthConsumerSecret);
+		cb.setOAuthAccessToken(OAuthAccessToken);
+		cb.setOAuthAccessTokenSecret(OAuthAccessTokenSecret);
+		
+		return cb;
+	}
 
-	public float getFontSizeToFitThisTextToThisWidth(String inText,
+	public void listenForCommand(Status status){
+		println("Got a command!");
+		String userName = status.getUser().getName();
+		println("user: "+userName);
+		if(userName.equals("Magnetic Tweets") || userName.equals("loadedsith")){
+			println("Got an authed user!");
+			String tweet = status.getText();
+			
+			if(tweet.startsWith("Topic:")){
+				tweet = tweet.substring(6, tweet.length());
+				while(tweet.substring(0,1)==" "||tweet.substring(0,1)==":"){
+					tweet = tweet.substring(1,tweet.length());
+					
+				}
+				topic = tweet;
+				topicFontSize = findFontSizeToFitThisTextToThisWidth(topic,width-100);
+	
+			}
+		}
+		
+	}
+
+	public void readTimeLineForCommands(){
+		
+		println(":");
+		ConfigurationBuilder cb = new ConfigurationBuilder();
+		cb = twitterConnect(cb);
+	
+		Twitter twitterTimeLine = new TwitterFactory(cb.build()).getInstance();
+		  
+		  //query.setRpp(100);
+		  
+		 
+		  //Try making the query request.
+		  try {
+			  ResponseList<Status> statuses = twitterTimeLine.getUserTimeline();
+		   //ResponseList<Status> statuses = twitterTimeLine.getHomeTimeline();
+		    //System.out.println("Showing home timeline.");
+		    for (Status status : statuses) {
+		        System.out.println("Home Timeline readout: Listening for commands"+status.getUser().getName() + ":" +
+		                           status.getText());
+		      listenForCommand(status);
+		    };
+		  }
+		  catch (TwitterException te) {
+		    println("Couldn't connect: " + te);
+		  };
+	    twitterTimeLine.shutdown();
+	}
+
+	public void addPhotoStatusToWords(Status status){
+		String tweetText = status.getUser().getScreenName() + " - "
+				+ status.getText();
+		float aSpeed = (float) (random(1) + .5);
+		for (MediaEntity entity : status.getMediaEntities()) {
+	
+			if (entity.getType().equals("photo")) {
+	
+				MagneticWord newWord = new MagneticWord(tweetText,
+						loadImage(entity.getMediaURL()), aSpeed);
+	
+				if ((lastPictureEndsX + newWord.myImage.width) <= width) {
+	
+					newWord.myX = lastPictureEndsX;
+					lastPictureEndsX += newWord.myImage.width;
+	
+				} else {
+					println("reset");
+					newWord.myX = 0;
+					lastPictureEndsX = 0;
+				}
+				
+				words.add(newWord);
+	
+			}
+		}
+	}
+	public static String intToARGB(int i){
+	    return Integer.toHexString(((i>>24)&0xFF))+
+	        Integer.toHexString(((i>>16)&0xFF))+
+	        Integer.toHexString(((i>>8)&0xFF))+
+	        Integer.toHexString((i&0xFF));
+	}
+	public void addStatusToWords(Status status){
+		
+		String tweetText = status.getUser().getScreenName() + " - "
+				+ status.getText();
+		String[] tweetWords = tweetText.split(" ", -1);
+		float aSpeed = (float) (random(1) + .5);
+		int newTweetColor = color(tweetText.hashCode()); 
+		float seedValue = (int)tweetText.hashCode()%100;
+		println(tweetText);
+		for (String tweetWord : tweetWords) {
+			
+			MagneticWord newWord = new MagneticWord(tweetWord, aSpeed);
+			perlinSeedIncrement=.1;
+			perlinScale=100;;
+			float noise = noise(seedValue+=perlinSeedIncrement)*perlinScale;
+			newWord.myX = lastWordX;
+			newWord.myY+=noise-100;
+			print(noise+ ", ");
+			
+			newWord.myColor = newTweetColor;
+			words.add(newWord);
+	
+			lastWordX += textWidth(tweetWord) + 4;
+			if (lastWordX > width) {
+				lastWordX = 0;
+			}
+			
+		}
+		//lastWordX = (int) random(width - 100);
+	}
+
+	public void addQueuedTweetToWords(Status status){
+		if (status.getMediaEntities() != null && showImagePosts==true) {
+			addPhotoStatusToWords(status);
+	
+	}else{
+		addStatusToWords(status);
+		
+	}
+		
+	}
+
+	public float findFontSizeToFitThisTextToThisWidth(String inText,
 			float inWidth) {
 		float fontSize = 1;
 		float size = 0;
@@ -710,42 +822,6 @@ public class TwitterBallsStreaming extends PApplet {
 			fontSize += .5;
 		}
 		return fontSize;
-	}
-
-	public MagneticWord drawWord(MagneticWord aWord) {
-
-		//Pick a font to scale the text to stretch across the screen
-		//
-		//int testWidth;
-		//
-		//if (aWord.myImage != null) {
-		//	testWidth = aWord.myImage.width - 5;
-		//} else {
-		//	testWidth = width - 5;
-		//
-		//}
-		// int fontSize = (int)
-		// getFontSizeToFitThisTextToThisWidth(aWord.myWord,testWidth);
-		int fontSize = 24;
-		if (aWord.myImage != null) {
-			tint(255, aWord.myDecay);
-			image(aWord.myImage, aWord.myX, aWord.myY);
-			g.removeCache(aWord.myImage);
-			
-
-		}
-		fill(foreground);
-		tint(foreground);
-		textSize((float) (fontSize - (fontSize * .1)));
-		text(aWord.myWord, aWord.myX + 2, aWord.myY,10);
-		// println(aWord.myWord);
-		if (aWord.myImage != null) {
-
-			tint(255, aWord.myDecay);
-
-		}
-		return aWord;
-
 	}
 
 	ControlFrame addControlFrame(String theName, int theWidth, int theHeight) {
