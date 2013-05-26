@@ -99,8 +99,8 @@ public class TwitterBallsStreaming extends PApplet {
 	int perlinScale= 10;
 	double perlinSeedIncrement= .01;
 	public static void main(String args[]) {
-		 PApplet.main(new String[] { "TwitterBallsStreaming" });
-		//PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
+		 //PApplet.main(new String[] { "TwitterBallsStreaming" });
+		PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
 
 	}
 	public void getKulerPallet() throws Exception {
@@ -140,7 +140,7 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 	public void setup() {
 
-		size(680, 450);
+		size(1680, 1050);
 		
 		theStage = this;
 
@@ -669,7 +669,7 @@ public class TwitterBallsStreaming extends PApplet {
 			OAuthAccessToken = lines.getItem(2);
 			OAuthAccessTokenSecret = lines.getItem(3);
 			kulerKey = lines.getItem(4);
-			
+			br.close();
 			
 		}
 		 catch (IOException e) {

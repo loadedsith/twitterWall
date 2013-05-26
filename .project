@@ -21,12 +21,12 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>library</name>
+			<name>google-gson-2.2.2</name>
 			<type>2</type>
-			<location>/Users/grahamheath/Downloads/GLGraphics-1.0.0/GLGraphics/library</location>
+			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>modes</name>
+			<name>video</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -36,7 +36,12 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>modes/java</name>
+			<name>google-gson-2.2.2/gson-2.2.2.jar</name>
+			<type>1</type>
+			<location>/Users/grahamheath/Downloads/google-gson-2.2.2/gson-2.2.2.jar</location>
+		</link>
+		<link>
+			<name>video/library</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -61,34 +66,9 @@
 			<locationURI>PARENT-5-PROJECT_LOC/Applications/Processing.app/Contents/Resources/Java/core/library/jogl-all.jar</locationURI>
 		</link>
 		<link>
-			<name>modes/java/libraries</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>modes/java/libraries/video</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>modes/java/libraries/video/library</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>modes/java/libraries/video/library/gstreamer-java.jar</name>
+			<name>video/library/video.jar</name>
 			<type>1</type>
-			<location>/Applications/Processing.app/Contents/Resources/Java/modes/java/libraries/video/library/gstreamer-java.jar</location>
-		</link>
-		<link>
-			<name>modes/java/libraries/video/library/jna.jar</name>
-			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/Applications/Processing.app/Contents/Resources/Java/modes/java/libraries/video/library/jna.jar</locationURI>
-		</link>
-		<link>
-			<name>modes/java/libraries/video/library/video.jar</name>
-			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/Applications/Processing.app/Contents/Resources/Java/modes/java/libraries/video/library/video.jar</locationURI>
+			<location>/Applications/Processing.app/Contents/Resources/Java/modes/java/libraries/video/library/video.jar</location>
 		</link>
 	</linkedResources>
 </projectDescription>
