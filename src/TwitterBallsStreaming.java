@@ -35,7 +35,7 @@ import s373.flob.*;
 
 public class TwitterBallsStreaming extends PApplet {
 	
-	boolean showImagePosts = false;
+	boolean showImagePosts = true;
 	boolean shrinking = false;
 	Capture video;
 	Flob flob;
@@ -47,7 +47,8 @@ public class TwitterBallsStreaming extends PApplet {
 	String instructions= "Respond by tweeting @Magnetic_Tweets";
 	String[] authorizedUsers = {"Magnetic_Tweets","loadedsith"};
 	PFont font = loadFont("InterstateBlackCompressed-28.vlw");
-	
+	int wordsFontSize = 27;
+	PVector gravityVector;
 	int foreground = color(0,255);
 	int background = color(255,255);
 	int creditsForeground = color(0,150);
@@ -99,8 +100,8 @@ public class TwitterBallsStreaming extends PApplet {
 	int perlinScale= 10;
 	double perlinSeedIncrement= .01;
 	public static void main(String args[]) {
-		 //PApplet.main(new String[] { "TwitterBallsStreaming" });
-		PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
+		PApplet.main(new String[] { "TwitterBallsStreaming" });
+		//PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
 
 	}
 	public void getKulerPallet() throws Exception {
@@ -140,10 +141,12 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 	public void setup() {
 
-		size(1680, 1050);
+		size(980, 950);
 		
 		theStage = this;
 
+		gravityVector = new PVector((float)0.0, (float) .1,(float) 0.0);
+		
 		cf = addControlFrame("extra", 800, 200);
 		readKeysFile();
 		textSize(24);
@@ -175,8 +178,18 @@ public class TwitterBallsStreaming extends PApplet {
 					if(size <= queueIndex){
 						queueIndex=0;
 					}
+					Status status = queue.get(queueIndex++);
+					println("status.getMediaEntities():"+status.getMediaEntities());
 					
-					addQueuedTweetToWords(queue.get(queueIndex++));
+					if (status.getMediaEntities().length > 0 && showImagePosts==true) {
+						
+						addPhotoStatusToWords(status);
+				
+					}else{
+						addStatusToWords(status);
+					
+					}
+					
 					//words.add(queue.get(0));
 					//while(words.size()>wordsSizeLimit){
 					//	queue.remove(0);
@@ -189,7 +202,7 @@ public class TwitterBallsStreaming extends PApplet {
 		
 	}
 	public void setupCamera(){
-		video = new Capture(this, 320, 240, fps);
+		video = new Capture(this, 320, 240, 15);
 		video.start();
 
 		videoinput = createImage(videores, videores, RGB);
@@ -458,54 +471,12 @@ public class TwitterBallsStreaming extends PApplet {
 		fill(foreground);
 		//rect(0, 0, flob.getPresencef() * width, 10);
 
+		//debugBlobs();
 		
-		
-		// get and use the data
-		// int numblobs = flob.getNumBlobs();
-		//int numtrackedblobs = flob.getNumTBlobs();
-
-		// text("numblobs> "+numtrackedblobs,5,height-10);
-		drawHUD();
-		//TBlob tb;
-//		for(int i = 0; i < numtrackedblobs; i++) { tb = flob.getTBlob(i);
-//		rect(tb.cx, tb.cy, tb.dimx, tb.dimy ); line(tb.cx, tb.cy, tb.cx +
-//		tb.velx * velmult ,tb.cy + tb.vely * velmult ); String txt =
-//		""+tb.id+" "+tb.cx+" "+tb.cy; text(txt,tb.cx, tb.cy); }
-		
-		//collison
-		float cdata[] = new float[5];
-		for (int i = 0; i < words.size(); i++) {
-			float x = words.get(i).myX / (float) width;
-			float y = words.get(i).myY / (float) height;
-
-			cdata = flob.imageblobs.postcollidetrackedblobs(x, y,
-					textWidth(words.get(i).myWord) / (float) width);
-
-			if (cdata[0] > 0) {
-				words.get(i).toca = true;
-				words.get(i).myX += cdata[1] * width * 0.1;
-				words.get(i).myY += cdata[2] * height * 0.1;
-				// println("Collide W/ "+words.get(i).myWord);
-			} else {
-				words.get(i).toca = false;
-			}
-			// words.get(i).run();
-		}
+		collideBlobs();
 
 		if (showcamera==true) {
-			//tint(foreground);
-			//fill(foreground);
-
-			image(flob.videoimg, width - videores, height - videores);
-			image(flob.videotexbin, width - 2 * videores, height - videores);
-			image(flob.videotexmotion, width - 3 * videores, height - videores);
-			image(flob.getSrcImage(), 0, 0, width, height);
-			g.removeCache(flob.videoimg);
-			g.removeCache(flob.videotexbin);
-			g.removeCache(flob.videotexmotion);
-			g.removeCache(flob.getSrcImage());
-			  
-
+			showCamera();
 
 		}
 
@@ -513,7 +484,83 @@ public class TwitterBallsStreaming extends PApplet {
 		
 		drawWords();
 	}
+	private void showCamera() {
+		//tint(foreground);
+		//fill(foreground);
 
+		image(flob.videoimg, width - videores, height - videores);
+		image(flob.videotexbin, width - 2 * videores, height - videores);
+		image(flob.videotexmotion, width - 3 * videores, height - videores);
+		image(flob.getSrcImage(), 0, 0, width, height);
+		g.removeCache(flob.videoimg);
+		g.removeCache(flob.videotexbin);
+		g.removeCache(flob.videotexmotion);
+		g.removeCache(flob.getSrcImage());
+	}
+	private void collideBlobs() {
+		//collison
+		float cdata[] = new float[5];
+		
+		for (int i = 0; i < words.size(); i++) {
+			MagneticWord word = words.get(i);
+			float wordXCenter = (word.myLocation.x +  (word.myWidth / 2));
+			float wordYCenter = (word.myLocation.y - (wordsFontSize/5));
+			line(wordXCenter-3, wordYCenter,wordXCenter+3, wordYCenter);
+			line(wordXCenter, wordYCenter-3,wordXCenter, wordYCenter+3);
+			
+			cdata = flob.imageblobs.postcollidetrackedblobs(wordXCenter/(float) width, wordYCenter/(float) height,
+					word.myWidth/2/(float)width );
+			fill(126,50);
+			ellipse(wordXCenter, wordYCenter,
+					word.myWidth/2,word.myWidth/2 );
+
+			if (cdata[0] > 0) {
+				word.toca = true;
+				
+				float xForce = (float) ((float) cdata[1] * width * 0.005 );
+				float yForce = (float) ((float) cdata[2] * height * 0.005 );
+				
+				word.myForces.add(new PVector(xForce,yForce));
+				
+				
+				
+				
+				//word.myLocation.x += cdata[1] * width * 0.1;
+				//word.myLocation.y += cdata[2] * height * 0.1;
+				// println("Collide W/ "+words.get(i).myWord);
+			} else {
+				words.get(i).toca = false;
+			}
+			// words.get(i).run();
+			stroke(126,50);
+
+			line(word.myLocation.x+(word.myWidth/2),word.myLocation.y+(word.myHeight/2), (word.myLocation.x+(word.myWidth/2))+word.myForces.x*3,(word.myLocation.y-(word.myHeight/2))+word.myForces.y*3 );
+			
+			word.myForces.lerp(new PVector((float)0, word.myForces.y, (float)0), (float) .003);
+			word.myForces.add(gravityVector);
+			word.myLocation.add(word.myForces);
+			
+			
+		}
+	}
+	public void debugBlobs(){
+		// get and use the data
+		// int numblobs = flob.getNumBlobs();
+		 int numtrackedblobs = flob.getNumTBlobs();
+
+		 text("numblobs> "+numtrackedblobs,5,height-10);
+		 drawHUD();
+		TBlob tb;
+		for(int i = 0; i < numtrackedblobs; i++) {
+			tb = flob.getTBlob(i);
+			rect(tb.cx, tb.cy, tb.dimx, tb.dimy );
+			line(tb.cx, tb.cy, tb.cx +
+			tb.velx * velmult ,tb.cy + tb.vely * velmult );
+			String txt =""+tb.id+" "+tb.cx+" "+tb.cy; 
+			text(txt,tb.cx, tb.cy); 
+		}
+		
+		}
 	public void drawWordThumbnails() {
 		for (MagneticWord word : words) {
 			if (word.myThumbnail != null) {
@@ -581,7 +628,7 @@ public class TwitterBallsStreaming extends PApplet {
 		text("Graham.p.heath@gmail.com", 5, height - 2 * creditsRowHeight + padding);
 		text("Adrienne.Canzolino@loop.colum.edu", 5, height - 1 * creditsRowHeight + padding);
 		
-		textSize(27);
+		textSize(wordsFontSize);
 		fill(creditsForeground);
 		//tint(creditsForeground);
 	}
@@ -592,7 +639,7 @@ public class TwitterBallsStreaming extends PApplet {
 		int fontSize = 24;
 		if (aWord.myImage != null) {
 			tint(255, aWord.myDecay);
-			image(aWord.myImage, aWord.myX, aWord.myY);
+			image(aWord.myImage, aWord.myLocation.x- (aWord.myHeight/2) , aWord.myLocation.y );
 			g.removeCache(aWord.myImage);
 			
 	
@@ -601,7 +648,7 @@ public class TwitterBallsStreaming extends PApplet {
 		//tint(foreground);
 		textSize((float) (fontSize - (fontSize * .1)));
 		
-		text(aWord.myWord, aWord.myX + 2, aWord.myY,10);
+		text(aWord.myWord, aWord.myLocation.x + 2+(aWord.myWidth/2), aWord.myLocation.y,10);
 		// println(aWord.myWord);
 		if (aWord.myImage != null) {
 	
@@ -634,18 +681,22 @@ public class TwitterBallsStreaming extends PApplet {
 	}
 
 	public MagneticWord updateWord(MagneticWord aWord) {
-		if (aWord.myY <= height + 10) {
-			aWord.myY += aWord.myRate;
+		
+		if (aWord.myLocation.y <= height + 10) {
+			//aWord.myLocation.y += aWord.myRate;
 	
 		} else if (aWord.myImage == null) {
 	
 			words.remove(aWord);
 	
 		}
+		if(aWord.myLocation.x + aWord.width > width||aWord.myLocation.x- aWord.width  < 0){
+			aWord.myForces.mult(new PVector(-1,1));
+		}
 		if (aWord.myDecay < 0) {
 			words.remove(aWord);
 		}
-		if (aWord.myY > height && aWord.myImage == null) {
+		if (aWord.myLocation.y > height && aWord.myImage == null) {
 			words.remove(aWord);
 		}
 		if (words.size() > 3) {
@@ -653,6 +704,10 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 		return aWord;
 	}
+	public void mouseClicked() {
+
+		  println("x: "+mouseX+",y:"+ mouseY);
+		}
 	public void readKeysFile(){
 		List lines = new List();
 		try {
@@ -742,24 +797,30 @@ public class TwitterBallsStreaming extends PApplet {
 				+ status.getText();
 		float aSpeed = (float) (random(1) + .5);
 		for (MediaEntity entity : status.getMediaEntities()) {
-	
+			print(entity.getType()+", ");
 			if (entity.getType().equals("photo")) {
-	
-				MagneticWord newWord = new MagneticWord(tweetText,
-						loadImage(entity.getMediaURL()), aSpeed);
-	
-				if ((lastPictureEndsX + newWord.myImage.width) <= width) {
-	
-					newWord.myX = lastPictureEndsX;
-					lastPictureEndsX += newWord.myImage.width;
-	
-				} else {
-					println("reset");
-					newWord.myX = 0;
-					lastPictureEndsX = 0;
+				PImage newImage;
+				try{
+					newImage = loadImage(entity.getMediaURL());
+				}catch(Exception e){
+					newImage = null;
 				}
-				
-				words.add(newWord);
+				if(newImage != null){
+					MagneticWord newWord = new MagneticWord(tweetText, newImage, aSpeed);
+		
+					if ((lastPictureEndsX + newWord.myImage.width) <= width) {
+		
+						newWord.myLocation.x = lastPictureEndsX+newWord.myImage.width/2;
+						lastPictureEndsX += newWord.myImage.width;
+		
+					} else {
+						println("reset");
+						newWord.myLocation.x = newWord.myImage.width/2;
+						lastPictureEndsX = newWord.myImage.width/2;
+					}
+					
+					words.add(newWord);
+				}
 	
 			}
 		}
@@ -774,20 +835,31 @@ public class TwitterBallsStreaming extends PApplet {
 		
 		String tweetText = status.getUser().getScreenName() + " - "
 				+ status.getText();
+		tweetText.replaceAll("\r", " ");
+		tweetText.replaceAll("\n", " ");
+		tweetText.replaceAll("\\r", " ");
+		tweetText.replaceAll("\\n", " ");
 		String[] tweetWords = tweetText.split(" ", -1);
 		float aSpeed = (float) (random(1) + .5);
 		int newTweetColor = color(tweetText.hashCode()); 
 		float seedValue = (int)tweetText.hashCode()%100;
 		println(tweetText);
 		for (String tweetWord : tweetWords) {
-			
+
+			try{
+				URL url = new URL( tweetWord );
+				println("dumping link: "+url);
+				break;
+			}catch (Exception e){
+				//regular tweet, do nothing
+			}
 			MagneticWord newWord = new MagneticWord(tweetWord, aSpeed);
 			perlinSeedIncrement=.1;
-			perlinScale=100;;
+			perlinScale=100;
 			float noise = noise(seedValue+=perlinSeedIncrement)*perlinScale;
-			newWord.myX = lastWordX;
-			newWord.myY+=noise-100;
-			print(noise+ ", ");
+			newWord.myLocation = new PVector(lastWordX,newWord.myLocation.y+noise-100);
+			newWord.myHeight = wordsFontSize;
+			newWord.myWidth = textWidth(tweetWord);
 			
 			newWord.myColor = newTweetColor;
 			words.add(newWord);
@@ -801,16 +873,7 @@ public class TwitterBallsStreaming extends PApplet {
 		//lastWordX = (int) random(width - 100);
 	}
 
-	public void addQueuedTweetToWords(Status status){
-		if (status.getMediaEntities() != null && showImagePosts==true) {
-			addPhotoStatusToWords(status);
-	
-	}else{
-		addStatusToWords(status);
-		
-	}
-		
-	}
+
 
 	public float findFontSizeToFitThisTextToThisWidth(String inText,
 			float inWidth) {
