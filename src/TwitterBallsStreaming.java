@@ -705,7 +705,7 @@ public class TwitterBallsStreaming extends PApplet {
 	
 		}
 		if(aWord.myLocation.x + aWord.width > width||aWord.myLocation.x- aWord.width  < 0){
-			aWord.myForces.mult(new PVector(-1,1));
+			aWord.myForces.mult(new PVector(-1,1),1);
 		}
 		if (aWord.myDecay < 0) {
 			words.remove(aWord);
