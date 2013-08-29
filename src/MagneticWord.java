@@ -22,7 +22,7 @@ import processing.core.PImage;
   int myColor;
   float myWidth;
   float myHeight;
- 
+  
   public MagneticWord(String inWord, PImage newImg, double inRate) {
 		myLocation = new PVector();
 		myForces = new PVector();
@@ -68,7 +68,7 @@ public MagneticWord(String inWord, double inRate) {
 	myRate = (float)inRate;
 	myLocation = new PVector();
 	myForces = new PVector();
-	myForces=PVector.random2D();
+	myForces.lerp(PVector.random2D(),(float)0.3);
 	
 	myWidth =  50;//default width because we need the stage to do the math for us
 	myHeight = 26;//default height because we need the stage to do the math for us

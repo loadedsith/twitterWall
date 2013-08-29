@@ -100,8 +100,8 @@ public class TwitterBallsStreaming extends PApplet {
 	int perlinScale= 10;
 	double perlinSeedIncrement= .01;
 	public static void main(String args[]) {
-		PApplet.main(new String[] { "TwitterBallsStreaming" });
-		//PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
+		//PApplet.main(new String[] { "TwitterBallsStreaming" });
+		PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
 
 	}
 	public void getKulerPallet() throws Exception {
@@ -141,11 +141,11 @@ public class TwitterBallsStreaming extends PApplet {
 		}
 	public void setup() {
 
-		size(980, 950);
+		size(1680, 1050);
 		
 		theStage = this;
 
-		gravityVector = new PVector((float)0.0, (float) .1,(float) 0.0);
+		gravityVector = new PVector((float)0.0, (float) .08,(float) 0.0);
 		
 		cf = addControlFrame("extra", 800, 200);
 		readKeysFile();
@@ -472,7 +472,7 @@ public class TwitterBallsStreaming extends PApplet {
 		//rect(0, 0, flob.getPresencef() * width, 10);
 
 		//debugBlobs();
-		
+		drawHUD();
 		collideBlobs();
 
 		if (showcamera==true) {
@@ -503,24 +503,23 @@ public class TwitterBallsStreaming extends PApplet {
 		
 		for (int i = 0; i < words.size(); i++) {
 			MagneticWord word = words.get(i);
-			float wordXCenter = (word.myLocation.x +  (word.myWidth / 2));
+			float wordXCenter = (word.myLocation.x + (word.myWidth/4));
 			float wordYCenter = (word.myLocation.y - (wordsFontSize/5));
-			line(wordXCenter-3, wordYCenter,wordXCenter+3, wordYCenter);
-			line(wordXCenter, wordYCenter-3,wordXCenter, wordYCenter+3);
+			//line(wordXCenter-3, wordYCenter,wordXCenter+3, wordYCenter);
+			//line(wordXCenter, wordYCenter-3,wordXCenter, wordYCenter+3);
 			
 			cdata = flob.imageblobs.postcollidetrackedblobs(wordXCenter/(float) width, wordYCenter/(float) height,
 					word.myWidth/2/(float)width );
 			fill(126,50);
-			ellipse(wordXCenter, wordYCenter,
-					word.myWidth/2,word.myWidth/2 );
+			//ellipse(wordXCenter, wordYCenter, word.myWidth/2,word.myWidth/2 );
 
 			if (cdata[0] > 0) {
 				word.toca = true;
 				
-				float xForce = (float) ((float) cdata[1] * width * 0.005 );
-				float yForce = (float) ((float) cdata[2] * height * 0.005 );
+				float xForce = (float) ((float) cdata[1] * width * 0.1 );
+				float yForce = (float) ((float) cdata[2] * height * 0.1 );
 				
-				word.myForces.add(new PVector(xForce,yForce));
+				word.myForces.lerp(new PVector(xForce,yForce), (float).1);
 				
 				
 				
@@ -534,10 +533,11 @@ public class TwitterBallsStreaming extends PApplet {
 			// words.get(i).run();
 			stroke(126,50);
 
-			line(word.myLocation.x+(word.myWidth/2),word.myLocation.y+(word.myHeight/2), (word.myLocation.x+(word.myWidth/2))+word.myForces.x*3,(word.myLocation.y-(word.myHeight/2))+word.myForces.y*3 );
+			//line(word.myLocation.x+(word.myWidth/2),word.myLocation.y+(word.myHeight/2), (word.myLocation.x+(word.myWidth/2))+word.myForces.x*3,(word.myLocation.y-(word.myHeight/2))+word.myForces.y*3 );
 			
 			word.myForces.lerp(new PVector((float)0, word.myForces.y, (float)0), (float) .003);
 			word.myForces.add(gravityVector);
+			word.myForces.limit(90);
 			word.myLocation.add(word.myForces);
 			
 			
@@ -549,7 +549,7 @@ public class TwitterBallsStreaming extends PApplet {
 		 int numtrackedblobs = flob.getNumTBlobs();
 
 		 text("numblobs> "+numtrackedblobs,5,height-10);
-		 drawHUD();
+		 
 		TBlob tb;
 		for(int i = 0; i < numtrackedblobs; i++) {
 			tb = flob.getTBlob(i);
@@ -598,11 +598,30 @@ public class TwitterBallsStreaming extends PApplet {
 
 	public void drawWords() {
 		for (MagneticWord word : words) {
-	
+			
+			
+			if (word.myImage != null) {
+				word = updateWord(word);
+				tint(255, word.myDecay);
+				image(word.myImage, word.myLocation.x- (word.myWidth/2) , word.myLocation.y -(word.myHeight/2) );
+				strokeWeight(3);
+				stroke(word.myColor);
+				fill(0,0);
+				rect( word.myLocation.x- (word.myWidth/2) , word.myLocation.y-(word.myHeight/2),word.myWidth , word.myHeight);
+				g.removeCache(word.myImage);
+				
+		
+			}
+			
+			
+		}
+		for (MagneticWord word : words) {
+			if (word.myImage == null) {
 			word = updateWord(word);
 			word = drawWord(word);
-	
+			}
 		}
+		
 		if (keepThisOneUp != null) {
 			drawWord(keepThisOneUp);
 			keepThisOneUp.myDecay = 255;
@@ -637,24 +656,19 @@ public class TwitterBallsStreaming extends PApplet {
 	
 		
 		int fontSize = 24;
-		if (aWord.myImage != null) {
-			tint(255, aWord.myDecay);
-			image(aWord.myImage, aWord.myLocation.x- (aWord.myHeight/2) , aWord.myLocation.y );
-			g.removeCache(aWord.myImage);
-			
-	
-		}
-		fill(aWord.myColor);
-		//tint(foreground);
-		textSize((float) (fontSize - (fontSize * .1)));
 		
-		text(aWord.myWord, aWord.myLocation.x + 2+(aWord.myWidth/2), aWord.myLocation.y,10);
-		// println(aWord.myWord);
-		if (aWord.myImage != null) {
-	
-			tint(255, aWord.myDecay);
-	
-		}
+			fill(aWord.myColor);
+			//tint(foreground);
+			textSize((float) (fontSize - (fontSize * .1)));
+			
+			text(aWord.myWord, aWord.myLocation.x - 2-(aWord.myWidth/2), aWord.myLocation.y,10);
+			// println(aWord.myWord);
+			if (aWord.myImage != null) {
+		
+				tint(255, aWord.myDecay);
+		
+			}
+		
 		fill(foreground);
 		return aWord;
 	
@@ -795,7 +809,14 @@ public class TwitterBallsStreaming extends PApplet {
 	public void addPhotoStatusToWords(Status status){
 		String tweetText = status.getUser().getScreenName() + " - "
 				+ status.getText();
-		float aSpeed = (float) (random(1) + .5);
+		tweetText.replaceAll("\r", " ");
+		tweetText.replaceAll("\n", " ");
+		tweetText.replaceAll("\\r", " ");
+		tweetText.replaceAll("\\n", " ");
+		float aSpeed = (float) (random(1) + .3);
+		int newTweetColor = color(tweetText.hashCode()); 
+		
+		addStatusToWords(status);
 		for (MediaEntity entity : status.getMediaEntities()) {
 			print(entity.getType()+", ");
 			if (entity.getType().equals("photo")) {
@@ -807,7 +828,7 @@ public class TwitterBallsStreaming extends PApplet {
 				}
 				if(newImage != null){
 					MagneticWord newWord = new MagneticWord(tweetText, newImage, aSpeed);
-		
+					newWord.myColor=color(newTweetColor);
 					if ((lastPictureEndsX + newWord.myImage.width) <= width) {
 		
 						newWord.myLocation.x = lastPictureEndsX+newWord.myImage.width/2;
@@ -821,6 +842,7 @@ public class TwitterBallsStreaming extends PApplet {
 					
 					words.add(newWord);
 				}
+				
 	
 			}
 		}
