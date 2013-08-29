@@ -725,7 +725,9 @@ public class TwitterBallsStreaming extends PApplet {
 	public void readKeysFile(){
 		List lines = new List();
 		try {
-			FileInputStream fstream = new FileInputStream("src/Files/keys.txt");
+//			System.out.println("Working Directory = " + System.getProperty("user.dir"));
+			FileInputStream fstream = new FileInputStream("../src/Files/keys.txt");
+			
 			DataInputStream in = new DataInputStream(fstream);
 	
 			BufferedReader br = new BufferedReader(new InputStreamReader(in));
