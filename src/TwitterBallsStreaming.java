@@ -99,6 +99,7 @@ public class TwitterBallsStreaming extends PApplet {
 	int queueIndex = 0;
 	int perlinScale= 10;
 	double perlinSeedIncrement= .01;
+	private boolean freeze = true;
 	public static void main(String args[]) {
 		//PApplet.main(new String[] { "TwitterBallsStreaming" });
 		PApplet.main(new String[] { "--present", "TwitterBallsStreaming" });
@@ -179,14 +180,18 @@ public class TwitterBallsStreaming extends PApplet {
 						queueIndex=0;
 					}
 					Status status = queue.get(queueIndex++);
-					println("status.getMediaEntities():"+status.getMediaEntities());
+					//println("status.getMediaEntities():"+status.getMediaEntities());
 					
 					if (status.getMediaEntities().length > 0 && showImagePosts==true) {
 						
 						addPhotoStatusToWords(status);
 				
 					}else{
-						addStatusToWords(status);
+						try{
+							addStatusToWords(status);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 					
 					}
 					
@@ -275,7 +280,7 @@ public class TwitterBallsStreaming extends PApplet {
 
 			@Override
 			public void onDirectMessage(DirectMessage directMessage) {
-				println(directMessage.getText());
+				//println(directMessage.getText());
 
 			}
 
@@ -430,7 +435,7 @@ public class TwitterBallsStreaming extends PApplet {
 		
 		stroke(255);
 		background(255);
-		if (queue.size() > 500&& shrinking == false) {
+		if (queue.size() > 1000&& shrinking == false) {
 				twitterStream.shutdown();
 				shrinking=true;
 				
@@ -516,8 +521,18 @@ public class TwitterBallsStreaming extends PApplet {
 			if (cdata[0] > 0) {
 				word.toca = true;
 				
-				float xForce = (float) ((float) cdata[1] * width * 0.1 );
-				float yForce = (float) ((float) cdata[2] * height * 0.1 );
+				float xForce;
+				float yForce;
+				
+				if(freeze == true){
+					xForce = 0;
+					yForce = 0;	
+				}else{
+					xForce = (float) ((float) cdata[1] * width * 0.1 );
+					yForce = (float) ((float) cdata[2] * height * 0.1 )+10;	
+				}
+								
+				
 				
 				word.myForces.lerp(new PVector(xForce,yForce), (float).1);
 				
@@ -720,13 +735,20 @@ public class TwitterBallsStreaming extends PApplet {
 	}
 	public void mouseClicked() {
 
-		  println("x: "+mouseX+",y:"+ mouseY);
+		//  println("x: "+mouseX+",y:"+ mouseY);
 		}
 	public void readKeysFile(){
 		List lines = new List();
 		try {
-//			System.out.println("Working Directory = " + System.getProperty("user.dir"));
-			FileInputStream fstream = new FileInputStream("../src/Files/keys.txt");
+			System.out.println("Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"/src/Files/keys.txt");
+			
+			FileInputStream fstream;
+			try{
+				fstream = new FileInputStream("src/Files/keys.txt");
+			}catch(Exception e){
+				throw new IllegalArgumentException("Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"src/Files/keys.txt"+e.getMessage());
+			}
+			
 			
 			DataInputStream in = new DataInputStream(fstream);
 	
@@ -817,7 +839,7 @@ public class TwitterBallsStreaming extends PApplet {
 		tweetText.replaceAll("\\n", " ");
 		float aSpeed = (float) (random(1) + .3);
 		int newTweetColor = color(tweetText.hashCode()); 
-		
+		newTweetColor = blendColor(newTweetColor, foreground, BLEND);
 		addStatusToWords(status);
 		for (MediaEntity entity : status.getMediaEntities()) {
 			print(entity.getType()+", ");
@@ -865,9 +887,9 @@ public class TwitterBallsStreaming extends PApplet {
 		tweetText.replaceAll("\\n", " ");
 		String[] tweetWords = tweetText.split(" ", -1);
 		float aSpeed = (float) (random(1) + .5);
-		int newTweetColor = color(tweetText.hashCode()); 
+		int newTweetColor = blendColor(blendColor(blendColor(blendColor(foreground,color(tweetText.hashCode()),BLEND),color(tweetText.hashCode()),BLEND),color(tweetText.hashCode()),BLEND),color(tweetText.hashCode()),BLEND); 
 		float seedValue = (int)tweetText.hashCode()%100;
-		println(tweetText);
+		//println(tweetText);
 		for (String tweetWord : tweetWords) {
 
 			try{
@@ -886,6 +908,7 @@ public class TwitterBallsStreaming extends PApplet {
 			newWord.myWidth = textWidth(tweetWord);
 			
 			newWord.myColor = newTweetColor;
+			
 			words.add(newWord);
 	
 			lastWordX += textWidth(tweetWord) + 4;
@@ -935,6 +958,12 @@ public class TwitterBallsStreaming extends PApplet {
 		cf.cp5.get(Textfield.class, "filter").setText(defaultFilter);
 	}
 
+	public void cycleMode() {
+		freeze = !freeze;
+		
+	}
+
+	
 	public void updateFilter() {
 		println("updateFilter()");
 		FilterQuery fq = new FilterQuery();
