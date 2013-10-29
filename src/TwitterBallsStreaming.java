@@ -740,13 +740,17 @@ public class TwitterBallsStreaming extends PApplet {
 	public void readKeysFile(){
 		List lines = new List();
 		try {
-			System.out.println("Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"/src/Files/keys.txt");
+			System.out.println("Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"/Resources/keys.txt");
 			
 			FileInputStream fstream;
 			try{
-				fstream = new FileInputStream("src/Files/keys.txt");
+				System.out.println("try");
+
+				fstream = new FileInputStream("Resources/keys.txt");
 			}catch(Exception e){
-				throw new IllegalArgumentException("Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"src/Files/keys.txt"+e.getMessage());
+				System.out.println("catch");
+
+				throw new IllegalArgumentException("Fail: Twitter OAuth Keys should be in = " + System.getProperty("user.dir")+"/Resources/keys.txt\n error:"+e.getMessage());
 			}
 			
 			
